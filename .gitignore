@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Project secrets / runtime artifacts
+client_secrets.json
+token.json
+schedule_cache/*.json
+logs/*.log
+
+# Keep directory placeholders
+!schedule_cache/.gitkeep
+!logs/.gitkeep
+!tests/fixtures/.gitkeep
