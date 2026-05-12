@@ -7,9 +7,16 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Iterable
+from urllib.parse import parse_qs, urlparse
 
-from auth import get_credentials
-from normalizer import (
+# Make sibling modules importable when run as `python -m src.cli`.
+# pytest handles this via pytest.ini's `pythonpath = src`, but `python -m` does not.
+_SRC_DIR = Path(__file__).resolve().parent
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+
+from auth import get_credentials  # noqa: E402
+from normalizer import (  # noqa: E402
     AmbiguousMatch,
     Matched,
     NoMatch,
@@ -19,19 +26,40 @@ from normalizer import (
     load_abbreviations,
     match_video_to_game,
 )
-from stats_hub_scraper import (
+from stats_hub_scraper import (  # noqa: E402
     Game,
     SeasonNotAvailableError,
     get_schedule,
 )
-from title_parser import load_team_index, parse_teams
-from youtube_client import build_service, list_my_full_game_videos, update_video
+from title_parser import load_team_index, parse_teams  # noqa: E402
+from youtube_client import build_service, list_my_full_game_videos, update_video  # noqa: E402
 
 
 SCHEDULE_CACHE_DIR = Path("schedule_cache")
 LOG_DIR_DEFAULT = Path("logs")
 TEAM_ABBREVIATIONS_PATH = Path("team_abbreviations.json")
 DESCRIPTION_TEMPLATE_PATH = Path("description_template.txt")
+
+
+def _extract_video_id(s: str) -> str:
+    """Return the bare YouTube video ID from either a URL or an already-bare ID.
+
+    Accepts https://youtu.be/<id>, https://www.youtube.com/watch?v=<id>, and
+    plain `<id>` strings.
+    """
+    if "youtu.be/" in s or "youtube.com/" in s:
+        u = urlparse(s)
+        if u.netloc.endswith("youtu.be"):
+            return u.path.lstrip("/").split("/")[0]
+        if "youtube.com" in u.netloc:
+            qs = parse_qs(u.query)
+            if "v" in qs:
+                return qs["v"][0]
+            # /shorts/<id> or /embed/<id> fallback
+            parts = [p for p in u.path.split("/") if p]
+            if parts and parts[0] in ("shorts", "embed", "live") and len(parts) > 1:
+                return parts[1]
+    return s
 
 
 def _log_manual_review(log_dir: Path, *, video: Video, reason: str, details: str = "") -> None:
@@ -96,7 +124,8 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--dry-run", action="store_true", default=True, help="(default) preview changes, no writes")
     mode.add_argument("--apply", action="store_true", help="push changes to YouTube after confirmation")
     parser.add_argument("--season", type=int, action="append", default=[], help="restrict to season(s)")
-    parser.add_argument("--video-id", action="append", default=[], help="restrict to video ID(s)")
+    parser.add_argument("--video-id", action="append", default=[],
+                        help="restrict to video ID(s); accepts bare IDs or YouTube URLs")
     parser.add_argument("--refresh-schedule", action="store_true", help="re-scrape stats hub")
     parser.add_argument("--skip-unchanged", action="store_true", help="(with --apply) skip videos where computed title/desc match current")
     parser.add_argument("--log-dir", type=Path, default=LOG_DIR_DEFAULT)
@@ -104,6 +133,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.apply:
         args.dry_run = False
+
+    # Normalize --video-id values: accept bare IDs or YouTube URLs.
+    args.video_id = [_extract_video_id(v) for v in args.video_id]
 
     log_dir: Path = args.log_dir
     _ensure_clean_log_dir(log_dir)
