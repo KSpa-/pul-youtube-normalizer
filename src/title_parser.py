@@ -19,6 +19,13 @@ class TeamIndex:
 
 
 def load_team_index(raw: dict) -> TeamIndex:
+    """Build a TeamIndex from raw team_abbreviations.json data.
+
+    The input shape is `{full_name: {"short": str, "aliases": list[str]}}`.
+    Each full name and each alias is registered (lowercased) as a key pointing
+    to the canonical full name. The resulting `names_longest_first` list lets
+    callers prefer longer matches over shorter substrings.
+    """
     canonical_by_lower: dict[str, str] = {}
     for full_name, meta in raw.items():
         canonical_by_lower[full_name.lower()] = full_name
