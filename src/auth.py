@@ -1,7 +1,7 @@
 """OAuth2 flow for YouTube Data API."""
 from __future__ import annotations
 
-import os
+import sys
 from pathlib import Path
 
 from google.auth.transport.requests import Request
@@ -24,7 +24,8 @@ def _find_client_secrets() -> Path:
             if p.name == "client_secrets.json.json":
                 print(
                     "WARNING: found 'client_secrets.json.json' (double extension). "
-                    "Consider renaming to 'client_secrets.json'."
+                    "Consider renaming to 'client_secrets.json'.",
+                    file=sys.stderr,
                 )
             return p
     raise CredentialsNotFound(
@@ -36,7 +37,14 @@ def _find_client_secrets() -> Path:
 def get_credentials() -> Credentials:
     creds: Credentials | None = None
     if TOKEN_PATH.exists():
-        creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
+        try:
+            creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
+        except (ValueError, OSError) as e:
+            print(
+                f"WARNING: could not load {TOKEN_PATH} ({e}). Re-authenticating.",
+                file=sys.stderr,
+            )
+            creds = None
 
     if creds and creds.valid:
         return creds
