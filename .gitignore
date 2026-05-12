@@ -15,3 +15,4 @@ logs/*.log
 !schedule_cache/.gitkeep
 !logs/.gitkeep
 !tests/fixtures/.gitkeep
+tests/fixtures/*_files/
