@@ -1,0 +1,12 @@
+{
+  "Atlanta Soul":         {"short": "Atlanta Soul",       "aliases": ["Soul", "ATL Soul", "ATL"]},
+  "Austin Torch":         {"short": "Austin Torch",       "aliases": ["Torch", "AUS Torch", "AUS"]},
+  "DC Shadow":            {"short": "DC Shadow",          "aliases": ["Shadow", "Washington Shadow", "DC"]},
+  "Indianapolis Red":     {"short": "Indy Red",           "aliases": ["Indy Red", "Indianapolis", "IND"]},
+  "Milwaukee Monarchs":   {"short": "Milwaukee Monarchs", "aliases": ["Monarchs", "MIL Monarchs", "MIL"]},
+  "Minnesota Strike":     {"short": "Minn Strike",        "aliases": ["Strike", "MN Strike", "Minnesota", "MIN"]},
+  "Nashville Nightshade": {"short": "Nashville Shade",    "aliases": ["Nightshade", "Shade", "NSH Nightshade", "NSH"]},
+  "New York Gridlock":    {"short": "NY Gridlock",        "aliases": ["Gridlock", "NYC Gridlock", "NY", "NYC"]},
+  "Philadelphia Surge":   {"short": "Philly Surge",       "aliases": ["Surge", "Philly Surge", "Philadelphia", "PHI"]},
+  "Raleigh Radiance":     {"short": "Raleigh Radiance",   "aliases": ["Radiance", "RAL Radiance", "RAL"]}
+}

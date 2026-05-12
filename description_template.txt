@@ -1,0 +1,15 @@
+{GAME_DATE_LINE}
+Week {WEEK_NUMBER} of the {SEASON_YEAR} PUL season. {LOCATION_SENTENCE}
+
+
+About the PUL:
+
+The Premier Ultimate League (PUL), founded in 2019, is the professional ultimate league for women and gender-expansive athletes that operates as a 501c6 nonprofit. Since the PUL's founding, the league and its teams actively strive to create an inclusive and competitive league showcasing athleticism and the game's spirit. The PUL has 10 member teams: Atlanta Soul, Austin Torch, DC Shadow, Indianapolis Red, Milwaukee Monarchs, Minnesota Strike, Nashville Nightshade, New York Gridlock, Philadelphia Surge, and Raleigh Radiance. These 10 teams compete in regular season play from April to June, with the championship taking place in June. In addition to all 10 teams highlighting athleticism and ultimate at its highest peak of competition, the PUL strives for gender, racial, and economic diversity.
+
+The {SEASON_YEAR} season schedule and stats can be found here: https://pul-stats-hub.pages.dev/
+
+The PUL can be followed on social media at @premierultimateleague on Facebook, Instagram, LinkedIn, and YouTube.
+
+Like us on Facebook:  https://www.facebook.com/premierultimateleague
+Follow us on Instagram:  https://www.instagram.com/premierultimateleague
+Shop for PUL Gear: https://teams.breakmark.com/group/pul
