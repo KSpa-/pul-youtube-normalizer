@@ -1,0 +1,53 @@
+"""OAuth2 flow for YouTube Data API."""
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+
+
+SCOPES = ["https://www.googleapis.com/auth/youtube"]
+TOKEN_PATH = Path("token.json")
+CLIENT_SECRETS_CANDIDATES = [Path("client_secrets.json"), Path("client_secrets.json.json")]
+
+
+class CredentialsNotFound(RuntimeError):
+    pass
+
+
+def _find_client_secrets() -> Path:
+    for p in CLIENT_SECRETS_CANDIDATES:
+        if p.exists():
+            if p.name == "client_secrets.json.json":
+                print(
+                    "WARNING: found 'client_secrets.json.json' (double extension). "
+                    "Consider renaming to 'client_secrets.json'."
+                )
+            return p
+    raise CredentialsNotFound(
+        "No client_secrets.json found. Download OAuth client credentials from "
+        "Google Cloud Console and save as ./client_secrets.json."
+    )
+
+
+def get_credentials() -> Credentials:
+    creds: Credentials | None = None
+    if TOKEN_PATH.exists():
+        creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
+
+    if creds and creds.valid:
+        return creds
+
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        TOKEN_PATH.write_text(creds.to_json(), encoding="utf-8")
+        return creds
+
+    secrets_path = _find_client_secrets()
+    flow = InstalledAppFlow.from_client_secrets_file(str(secrets_path), SCOPES)
+    creds = flow.run_local_server(port=0)
+    TOKEN_PATH.write_text(creds.to_json(), encoding="utf-8")
+    return creds
