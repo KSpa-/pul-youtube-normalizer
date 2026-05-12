@@ -56,6 +56,14 @@ def get_credentials() -> Credentials:
 
     secrets_path = _find_client_secrets()
     flow = InstalledAppFlow.from_client_secrets_file(str(secrets_path), SCOPES)
-    creds = flow.run_local_server(port=0)
+    creds = flow.run_local_server(
+        port=0,
+        open_browser=False,
+        authorization_prompt_message=(
+            "\n>>> Copy this URL and paste it into the Chrome profile you want to "
+            "authorize as the PUL channel owner:\n\n  {url}\n\n"
+            "(A local server is listening for the redirect.)\n"
+        ),
+    )
     TOKEN_PATH.write_text(creds.to_json(), encoding="utf-8")
     return creds
