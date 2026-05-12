@@ -53,15 +53,27 @@ def build_service(creds: Credentials):
     return build("youtube", "v3", credentials=creds, cache_discovery=False)
 
 
-def list_my_full_game_videos(service) -> Iterator[Video]:
-    """Yield every video on the authenticated user's channel longer than 1 hour."""
-    # 1. Get the uploads playlist ID for "mine".
-    channels = _call_with_retry(
-        lambda: service.channels().list(part="contentDetails", mine=True).execute()
-    )
+def list_full_game_videos(service, channel_handle: str | None = None) -> Iterator[Video]:
+    """Yield every video on the target channel longer than 1 hour.
+
+    If `channel_handle` is provided (e.g. "@premierultimateleague"), looks up
+    that channel by handle — required for Brand Account channels, since they
+    aren't returned by `channels.list(mine=True)`. Otherwise falls back to the
+    authenticated user's own (personal) channel.
+    """
+    if channel_handle:
+        handle = channel_handle if channel_handle.startswith("@") else f"@{channel_handle}"
+        channels = _call_with_retry(
+            lambda: service.channels().list(part="contentDetails", forHandle=handle).execute()
+        )
+    else:
+        channels = _call_with_retry(
+            lambda: service.channels().list(part="contentDetails", mine=True).execute()
+        )
     items = channels.get("items", [])
     if not items:
-        raise RuntimeError("No channel found for the authenticated user.")
+        target = repr(channel_handle) if channel_handle else "the authenticated user"
+        raise RuntimeError(f"No channel found for {target}.")
     uploads_playlist = items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
 
     # 2. Paginate playlist items to collect video IDs.

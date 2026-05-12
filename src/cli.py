@@ -32,13 +32,14 @@ from stats_hub_scraper import (  # noqa: E402
     get_schedule,
 )
 from title_parser import load_team_index, parse_teams  # noqa: E402
-from youtube_client import build_service, list_my_full_game_videos, update_video  # noqa: E402
+from youtube_client import build_service, list_full_game_videos, update_video  # noqa: E402
 
 
 SCHEDULE_CACHE_DIR = Path("schedule_cache")
 LOG_DIR_DEFAULT = Path("logs")
 TEAM_ABBREVIATIONS_PATH = Path("team_abbreviations.json")
 DESCRIPTION_TEMPLATE_PATH = Path("description_template.txt")
+DEFAULT_CHANNEL_HANDLE = "@premierultimateleague"
 
 
 def _extract_video_id(s: str) -> str:
@@ -95,9 +96,10 @@ def _ensure_clean_log_dir(log_dir: Path) -> None:
         (log_dir / name).write_text("", encoding="utf-8")
 
 
-def _collect_videos(service, video_id_filter: list[str], season_filter: list[int]) -> list[Video]:
+def _collect_videos(service, video_id_filter: list[str], season_filter: list[int],
+                    channel_handle: str | None) -> list[Video]:
     videos: list[Video] = []
-    for v in list_my_full_game_videos(service):
+    for v in list_full_game_videos(service, channel_handle=channel_handle):
         if video_id_filter and v.id not in video_id_filter:
             continue
         if season_filter and v.published_at.year not in season_filter:
@@ -129,6 +131,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--refresh-schedule", action="store_true", help="re-scrape stats hub")
     parser.add_argument("--skip-unchanged", action="store_true", help="(with --apply) skip videos where computed title/desc match current")
     parser.add_argument("--log-dir", type=Path, default=LOG_DIR_DEFAULT)
+    parser.add_argument("--channel-handle", default=DEFAULT_CHANNEL_HANDLE,
+                        help=f"YouTube handle of the channel to operate on (default: {DEFAULT_CHANNEL_HANDLE})")
     args = parser.parse_args(argv)
 
     if args.apply:
@@ -147,8 +151,8 @@ def main(argv: list[str] | None = None) -> int:
     creds = get_credentials()
     service = build_service(creds)
 
-    print("Fetching video list...")
-    videos = _collect_videos(service, args.video_id, args.season)
+    print(f"Fetching video list for {args.channel_handle}...")
+    videos = _collect_videos(service, args.video_id, args.season, args.channel_handle)
     print(f"Found {len(videos)} full-game video(s).")
 
     years_needed = {v.published_at.year for v in videos}
