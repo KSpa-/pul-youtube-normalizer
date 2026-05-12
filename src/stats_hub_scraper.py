@@ -75,6 +75,12 @@ class Game:
 
 
 def week_word_to_int(s: str) -> int:
+    """Parse a week label into an integer.
+
+    Accepts forms like "Week One", "Week 11", "week 3", "Three", or "3".
+    The optional "Week" prefix is stripped before matching. Falls back to
+    the first numeric run in the string. Raises ValueError if nothing parses.
+    """
     s = s.strip().lower().removeprefix("week").strip()
     if s.isdigit():
         return int(s)
