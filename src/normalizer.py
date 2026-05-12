@@ -71,20 +71,28 @@ def match_video_to_game(
     video: Video,
     team_pair: tuple[str, str],
     games: list[Game],
+    match_date: datetime.date | None = None,
+    window_days: int = MATCH_WINDOW_DAYS,
 ) -> MatchResult:
     """Find the unique game whose team pair matches (unordered) and whose
-    date is within ±MATCH_WINDOW_DAYS of the video's publish date.
+    date is within ±window_days of the reference date.
+
+    The reference date is `match_date` if provided (e.g., extracted from the
+    title), otherwise the video's `published_at` date. A title-extracted date
+    is far more accurate than `publishedAt` (which lags by upload/edit time),
+    so the caller should pass a tight `window_days` (e.g., 2) when it provides
+    `match_date`, and a wider one (e.g., 14) when falling back to publishedAt.
 
     Returns Matched if exactly one candidate, AmbiguousMatch if multiple,
     NoMatch if none.
     """
-    published_date = video.published_at.date()
+    ref_date = match_date if match_date is not None else video.published_at.date()
     team_set = frozenset(team_pair)
     candidates: list[Game] = []
     for g in games:
         if frozenset((g.away_team, g.home_team)) != team_set:
             continue
-        if abs((published_date - g.date).days) <= MATCH_WINDOW_DAYS:
+        if abs((ref_date - g.date).days) <= window_days:
             candidates.append(g)
 
     if len(candidates) == 0:

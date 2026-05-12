@@ -31,7 +31,7 @@ from stats_hub_scraper import (  # noqa: E402
     SeasonNotAvailableError,
     get_schedule,
 )
-from title_parser import load_team_index, parse_teams  # noqa: E402
+from title_parser import load_team_index, parse_date_from_title, parse_teams  # noqa: E402
 from youtube_client import build_service, list_full_game_videos, update_video  # noqa: E402
 
 
@@ -168,7 +168,14 @@ def main(argv: list[str] | None = None) -> int:
             _log_manual_review(log_dir, video=video, reason="no_teams_parsed")
             counts["no_teams_parsed"] += 1
             continue
-        result = match_video_to_game(video, teams, games)
+        # Prefer date embedded in the title (more accurate than publishedAt,
+        # which lags by upload/edit time). Use a tight ±2-day window when we
+        # have a title date; widen to ±14 days for publishedAt fallback.
+        title_date = parse_date_from_title(video.title)
+        if title_date is not None:
+            result = match_video_to_game(video, teams, games, match_date=title_date, window_days=2)
+        else:
+            result = match_video_to_game(video, teams, games, window_days=14)
         if isinstance(result, NoMatch):
             _log_manual_review(log_dir, video=video, reason="no_match", details=result.reason)
             counts["no_match"] += 1

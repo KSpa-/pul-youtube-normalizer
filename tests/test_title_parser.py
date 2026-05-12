@@ -1,7 +1,8 @@
+import datetime
 import json
 from pathlib import Path
 import pytest
-from title_parser import parse_teams, load_team_index, TeamIndex
+from title_parser import parse_teams, load_team_index, parse_date_from_title, TeamIndex
 
 
 @pytest.fixture(scope="module")
@@ -62,3 +63,15 @@ def test_load_team_index_builds_alias_map():
     assert "soul" in idx.canonical_by_lower
     assert "atl" in idx.canonical_by_lower
     assert idx.canonical_by_lower["soul"] == "Atlanta Soul"
+
+
+@pytest.mark.parametrize("title,expected", [
+    ("Atlanta SOUL @ Columbus PRIDE - 6/10/23", datetime.date(2023, 6, 10)),
+    ("Indy Red vs Nashville Shade 4/15/2024 (highlights)", datetime.date(2024, 4, 15)),
+    ("12/31/19 season finale", datetime.date(2019, 12, 31)),
+    ("No date in this title", None),
+    ("13/45/23 invalid date", None),  # month 13, day 45 — invalid
+    ("Just numbers 6/10 here", None),  # missing year
+])
+def test_parse_date_from_title(title, expected):
+    assert parse_date_from_title(title) == expected

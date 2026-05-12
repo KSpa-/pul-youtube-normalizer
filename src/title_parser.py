@@ -1,12 +1,36 @@
-"""Parse messy current YouTube titles to extract the two team names.
+"""Parse messy current YouTube titles to extract the two team names and
+optionally the game date if one is embedded in the title.
 
-Does NOT extract date, week, or home/away — those come from the stats hub.
+Week and home/away always come from the stats hub.
 """
 from __future__ import annotations
 
+import datetime
 import re
 from dataclasses import dataclass
 from typing import Optional
+
+
+_TITLE_DATE_PATTERN = re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{2}|\d{4})\b")
+
+
+def parse_date_from_title(title: str) -> Optional[datetime.date]:
+    """Extract a US-format date (M/D/YY or M/D/YYYY) from a title.
+
+    Returns None if no recognizable date is present or if the components
+    don't form a valid calendar date. Two-digit years are interpreted as
+    20YY (so "6/10/23" -> 2023-06-10). Only the first match is returned.
+    """
+    m = _TITLE_DATE_PATTERN.search(title)
+    if not m:
+        return None
+    month, day, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    if year < 100:
+        year += 2000
+    try:
+        return datetime.date(year, month, day)
+    except ValueError:
+        return None
 
 
 @dataclass(frozen=True)
