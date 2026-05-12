@@ -17,12 +17,12 @@ from normalizer import (
 )
 
 
-def _game(season=2024, week=3, date="2024-04-15", away="Indianapolis Red",
-          home="Nashville Nightshade", venue="West High School",
-          city="Nashville", state="TN") -> Game:
+def _game(season=2024, week=3, date="2024-04-15", away="Indy Red",
+          home="Nashville NightShade", venue="West High School",
+          location="Nashville, TN") -> Game:
     return Game(
         season=season, week=week, date=datetime.date.fromisoformat(date),
-        away_team=away, home_team=home, venue=venue, city=city, state=state,
+        away_team=away, home_team=home, venue=venue, location=location,
     )
 
 
@@ -46,7 +46,7 @@ def abbrev():
 def test_match_exact_date_and_teams():
     video = _video()
     games = [_game()]
-    result = match_video_to_game(video, ("Indianapolis Red", "Nashville Nightshade"), games)
+    result = match_video_to_game(video, ("Indy Red", "Nashville NightShade"), games)
     assert isinstance(result, Matched)
     assert result.game is games[0]
 
@@ -54,21 +54,21 @@ def test_match_exact_date_and_teams():
 def test_match_within_seven_day_window():
     video = _video(published="2024-04-20T18:00:00Z")
     games = [_game(date="2024-04-15")]
-    result = match_video_to_game(video, ("Indianapolis Red", "Nashville Nightshade"), games)
+    result = match_video_to_game(video, ("Indy Red", "Nashville NightShade"), games)
     assert isinstance(result, Matched)
 
 
 def test_match_outside_seven_day_window_returns_no_match():
     video = _video(published="2024-05-01T18:00:00Z")
     games = [_game(date="2024-04-15")]
-    result = match_video_to_game(video, ("Indianapolis Red", "Nashville Nightshade"), games)
+    result = match_video_to_game(video, ("Indy Red", "Nashville NightShade"), games)
     assert isinstance(result, NoMatch)
 
 
 def test_unordered_team_pair_matches():
     video = _video()
-    games = [_game(away="Nashville Nightshade", home="Indianapolis Red")]
-    result = match_video_to_game(video, ("Indianapolis Red", "Nashville Nightshade"), games)
+    games = [_game(away="Nashville NightShade", home="Indy Red", location="Indianapolis, IN")]
+    result = match_video_to_game(video, ("Indy Red", "Nashville NightShade"), games)
     assert isinstance(result, Matched)
 
 
@@ -78,7 +78,7 @@ def test_ambiguous_when_two_games_within_window():
         _game(date="2024-04-15"),
         _game(date="2024-04-16"),
     ]
-    result = match_video_to_game(video, ("Indianapolis Red", "Nashville Nightshade"), games)
+    result = match_video_to_game(video, ("Indy Red", "Nashville NightShade"), games)
     assert isinstance(result, AmbiguousMatch)
     assert len(result.candidates) == 2
 
@@ -120,7 +120,7 @@ def test_build_new_description_full(abbrev):
     out = build_new_description(g, abbrev, template)
     assert "April 15, 2024" in out
     assert "Week 3 of the 2024 PUL season." in out
-    assert "Watch the Indianapolis Red take on the Nashville Nightshade" in out
+    assert "Watch the Indy Red take on the Nashville NightShade" in out
     assert "in Nashville, TN at the West High School." in out
     assert "The 2024 season schedule and stats can be found here:" in out
 
@@ -129,7 +129,7 @@ def test_build_new_description_drops_stadium_when_venue_missing(abbrev):
     g = _game(venue=None)
     template = Path("description_template.txt").read_text(encoding="utf-8")
     out = build_new_description(g, abbrev, template)
-    assert "Watch the Indianapolis Red take on the Nashville Nightshade in Nashville, TN." in out
+    assert "Watch the Indy Red take on the Nashville NightShade in Nashville, TN." in out
     assert "at the " not in out
 
 

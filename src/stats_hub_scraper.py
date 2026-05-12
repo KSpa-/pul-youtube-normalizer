@@ -14,22 +14,13 @@ from typing import Optional
 import requests
 from bs4 import BeautifulSoup
 
+from team_registry import TEAM_LOCATIONS
+
+# Backward-compat alias — prefer importing from team_registry directly.
+TEAM_HOME_LOCATIONS = TEAM_LOCATIONS
 
 STATS_HUB_BASE = "https://pul-stats-hub.pages.dev"
 SCHEDULE_URL_TEMPLATE = STATS_HUB_BASE + "/schedule/?season={season}"
-
-TEAM_HOME_LOCATIONS: dict[str, tuple[str, str]] = {
-    "Atlanta Soul":         ("Atlanta", "GA"),
-    "Austin Torch":         ("Austin", "TX"),
-    "DC Shadow":            ("Washington", "DC"),
-    "Indianapolis Red":     ("Indianapolis", "IN"),
-    "Milwaukee Monarchs":   ("Milwaukee", "WI"),
-    "Minnesota Strike":     ("Minneapolis", "MN"),
-    "Nashville Nightshade": ("Nashville", "TN"),
-    "New York Gridlock":    ("New York", "NY"),
-    "Philadelphia Surge":   ("Philadelphia", "PA"),
-    "Raleigh Radiance":     ("Raleigh", "NC"),
-}
 
 WEEK_WORDS = {
     "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
@@ -39,21 +30,23 @@ WEEK_WORDS = {
 
 # Map every team string the hub uses (as found in data-away / data-home
 # attributes on .game-card elements) to our canonical full name from
-# TEAM_HOME_LOCATIONS.  Anything NOT in this map is silently skipped —
-# the hub includes non-PUL exhibition teams (Columbus Pride, LA Astra,
-# Medellin Revolution, Portland Rising) that we don't want.
+# TEAM_LOCATIONS.  Anything NOT in this map is silently skipped.
 HUB_TO_CANONICAL: dict[str, str] = {
     "Atlanta Soul":         "Atlanta Soul",
     "Austin Torch":         "Austin Torch",
+    "Columbus Pride":       "Columbus Pride",
     "DC Shadow":            "DC Shadow",
-    "Indy Red":             "Indianapolis Red",
-    "Indianapolis Red":     "Indianapolis Red",
+    "Indy Red":             "Indy Red",
+    "Indianapolis Red":     "Indy Red",       # legacy alias
+    "LA Astra":             "LA Astra",
+    "Medellin Revolution":  "Medellin Revolution",
     "Milwaukee Monarchs":   "Milwaukee Monarchs",
     "Minnesota Strike":     "Minnesota Strike",
-    "Nashville NightShade": "Nashville Nightshade",
-    "Nashville Nightshade": "Nashville Nightshade",
+    "Nashville NightShade": "Nashville NightShade",
+    "Nashville Nightshade": "Nashville NightShade",  # legacy alias
     "New York Gridlock":    "New York Gridlock",
     "Philadelphia Surge":   "Philadelphia Surge",
+    "Portland Rising":      "Portland Rising",
     "Raleigh Radiance":     "Raleigh Radiance",
 }
 
@@ -70,8 +63,7 @@ class Game:
     away_team: str
     home_team: str
     venue: Optional[str]
-    city: str
-    state: str
+    location: str  # e.g. "Atlanta, GA", "Minnesota", "Medellin, Colombia"
 
 
 def week_word_to_int(s: str) -> int:
@@ -179,7 +171,7 @@ def _parse_game_card(
     if date is None:
         return None
 
-    city, state = TEAM_HOME_LOCATIONS[home_team]
+    location = TEAM_LOCATIONS[home_team]
     return Game(
         season=season,
         week=week,
@@ -187,8 +179,7 @@ def _parse_game_card(
         away_team=away_team,
         home_team=home_team,
         venue=None,
-        city=city,
-        state=state,
+        location=location,
     )
 
 
@@ -233,6 +224,5 @@ def _game_from_dict(d: dict) -> Game:
         away_team=d["away_team"],
         home_team=d["home_team"],
         venue=d.get("venue"),
-        city=d["city"],
-        state=d["state"],
+        location=d["location"],
     )

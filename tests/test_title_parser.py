@@ -11,25 +11,25 @@ def team_index() -> TeamIndex:
 
 
 @pytest.mark.parametrize("title,expected", [
-    # Canonical form with @
+    # Old full name forms — "Indianapolis Red" and "Nashville Nightshade" are now aliases
     ("PUL 2024 Week 3: Indianapolis Red @ Nashville Nightshade - 4/15",
-     ("Indianapolis Red", "Nashville Nightshade")),
+     ("Indy Red", "Nashville NightShade")),
 
     # "vs" instead of "@"
     ("Indianapolis Red vs Nashville Nightshade - Week 3",
-     ("Indianapolis Red", "Nashville Nightshade")),
+     ("Indy Red", "Nashville NightShade")),
 
     # Reversed casing
     ("indianapolis red vs nashville nightshade",
-     ("Indianapolis Red", "Nashville Nightshade")),
+     ("Indy Red", "Nashville NightShade")),
 
-    # Alias forms
+    # Alias forms (short names)
     ("Indy Red @ Nashville Shade — Week 3",
-     ("Indianapolis Red", "Nashville Nightshade")),
+     ("Indy Red", "Nashville NightShade")),
 
     # Aliases mixed with full names
     ("Surge vs Indianapolis Red",
-     ("Philadelphia Surge", "Indianapolis Red")),
+     ("Philadelphia Surge", "Indy Red")),
 
     # Two short aliases
     ("NY Gridlock @ Philly Surge - playoff",
@@ -49,7 +49,7 @@ def test_returns_none_when_only_one_team(team_index):
 
 def test_returns_first_two_when_more_than_two_mentioned(team_index):
     # Should return the first two distinct teams in order of appearance
-    title = "Atlanta Soul vs Austin Torch — preview of Indianapolis Red match"
+    title = "Atlanta Soul vs Austin Torch — preview of Indy Red match"
     assert parse_teams(title, team_index) == ("Atlanta Soul", "Austin Torch")
 
 

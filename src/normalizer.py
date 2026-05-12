@@ -136,11 +136,11 @@ def build_new_description(game: Game, abbrev: Abbreviations, template: str) -> s
 
     if game.venue is None:
         location_sentence = (
-            f"Watch the {away_full} take on the {home_full} in {game.city}, {game.state}."
+            f"Watch the {away_full} take on the {home_full} in {game.location}."
         )
     else:
         location_sentence = (
-            f"Watch the {away_full} take on the {home_full} in {game.city}, {game.state} "
+            f"Watch the {away_full} take on the {home_full} in {game.location} "
             f"at the {game.venue}."
         )
 

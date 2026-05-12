@@ -4,20 +4,21 @@ import pytest
 from stats_hub_scraper import (
     parse_schedule_html,
     week_word_to_int,
-    TEAM_HOME_LOCATIONS,
     Game,
 )
+from team_registry import TEAM_LOCATIONS
 
 
-def test_team_home_locations_covers_all_ten_teams():
+def test_team_home_locations_covers_all_pul_teams():
     expected = {
-        "Atlanta Soul", "Austin Torch", "DC Shadow", "Indianapolis Red",
-        "Milwaukee Monarchs", "Minnesota Strike", "Nashville Nightshade",
-        "New York Gridlock", "Philadelphia Surge", "Raleigh Radiance",
+        "Atlanta Soul", "Austin Torch", "Columbus Pride", "DC Shadow",
+        "Indy Red", "LA Astra", "Medellin Revolution", "Milwaukee Monarchs",
+        "Minnesota Strike", "Nashville NightShade", "New York Gridlock",
+        "Philadelphia Surge", "Portland Rising", "Raleigh Radiance",
     }
-    assert set(TEAM_HOME_LOCATIONS.keys()) == expected
-    for team, (city, state) in TEAM_HOME_LOCATIONS.items():
-        assert city and state, f"{team} is missing city or state"
+    assert set(TEAM_LOCATIONS.keys()) == expected
+    for team, location in TEAM_LOCATIONS.items():
+        assert location, f"{team} is missing location"
 
 
 @pytest.mark.parametrize("word,expected", [
@@ -50,13 +51,12 @@ def test_parse_schedule_html_extracts_games():
         assert isinstance(g, Game)
         assert g.season == 2024
         assert isinstance(g.date, datetime.date)
-        assert g.away_team in TEAM_HOME_LOCATIONS
-        assert g.home_team in TEAM_HOME_LOCATIONS
+        assert g.away_team in TEAM_LOCATIONS
+        assert g.home_team in TEAM_LOCATIONS
         assert g.away_team != g.home_team
         assert g.week >= 1
-        # city/state come from home team
-        expected_city, expected_state = TEAM_HOME_LOCATIONS[g.home_team]
-        assert g.city == expected_city
-        assert g.state == expected_state
+        # location comes from home team
+        assert g.location == TEAM_LOCATIONS[g.home_team]
+        assert g.location, f"Game {g} has empty location"
         # venue may be None for past games
         assert g.venue is None or isinstance(g.venue, str)
