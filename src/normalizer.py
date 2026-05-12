@@ -35,6 +35,12 @@ class Abbreviations:
 
 
 def load_abbreviations(path: Path) -> Abbreviations:
+    """Load team_abbreviations.json and return an Abbreviations record.
+
+    The JSON shape is `{canonical_full_name: {"short": str, "aliases": [...]}}`.
+    Only the `short` field is used here; aliases are consumed by title_parser.
+    Raises FileNotFoundError / json.JSONDecodeError / KeyError on bad input.
+    """
     raw = json.loads(path.read_text(encoding="utf-8"))
     return Abbreviations(
         short_by_full={full: meta["short"] for full, meta in raw.items()}
