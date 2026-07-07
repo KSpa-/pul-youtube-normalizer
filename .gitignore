@@ -9,7 +9,7 @@ venv/
 client_secrets.json
 token.json
 schedule_cache/*.json
-logs/*.log
+logs/*
 
 # Keep directory placeholders
 !schedule_cache/.gitkeep

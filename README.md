@@ -20,4 +20,14 @@ Apply changes (requires interactive `y/N` confirmation):
 python -m src.cli --apply
 ```
 
+Each run writes its logs to a timestamped folder under `logs/` (e.g.
+`logs/run_2026-07-06_20-45-12/`). An `--apply` run also writes `backup.json`
+there — the old and new title/description for every video, with a `pushed`
+flag — before anything is sent to YouTube.
+
+Undo an apply run:
+```
+python -m src.cli --rollback logs/run_2026-07-06_20-45-12
+```
+
 See `docs/superpowers/specs/2026-05-12-pul-youtube-normalizer-design.md` for full design.

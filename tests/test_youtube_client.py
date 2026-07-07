@@ -12,3 +12,13 @@ from youtube_client import parse_iso8601_duration
 ])
 def test_parse_iso8601_duration(s, expected_seconds):
     assert parse_iso8601_duration(s) == expected_seconds
+
+
+def test_parse_iso8601_duration_live_stream_p0d_returns_zero():
+    # YouTube returns "P0D" for live and upcoming streams; must not crash listing.
+    assert parse_iso8601_duration("P0D") == 0
+
+
+def test_parse_iso8601_duration_rejects_garbage():
+    with pytest.raises(ValueError):
+        parse_iso8601_duration("banana")

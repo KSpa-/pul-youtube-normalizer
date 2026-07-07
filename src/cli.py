@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import sys
 from collections import defaultdict
@@ -90,10 +91,56 @@ def _log_description_change(log_dir: Path, *, video: Video, new_description: str
         f.write(new_description + "\n")
 
 
-def _ensure_clean_log_dir(log_dir: Path) -> None:
-    log_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("dry_run.log", "description_changes.log", "manual_review.log"):
-        (log_dir / name).write_text("", encoding="utf-8")
+def _run_log_dir(base: Path, now: datetime.datetime) -> Path:
+    """Each invocation logs into its own timestamped directory so a later run
+    never truncates the backup/audit trail of an earlier one."""
+    return base / now.strftime("run_%Y-%m-%d_%H-%M-%S")
+
+
+def _write_backup(path: Path, planned: list[tuple[Video, str, str]],
+                  pushed_ids: set[str] = frozenset()) -> None:
+    """Write a machine-readable record of old and new title/description per video.
+
+    This is the rollback source of truth: `pushed` marks entries actually
+    written to YouTube (only those are restored by --rollback).
+    """
+    entries = [
+        {
+            "video_id": video.id,
+            "old_title": video.title,
+            "old_description": video.description,
+            "new_title": new_title,
+            "new_description": new_description,
+            "pushed": video.id in pushed_ids,
+        }
+        for video, new_title, new_description in planned
+    ]
+    path.write_text(json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _load_backup(path: Path) -> list[dict]:
+    """Load a backup file; accepts either the backup.json or its run directory."""
+    p = Path(path)
+    if p.is_dir():
+        p = p / "backup.json"
+    return json.loads(p.read_text(encoding="utf-8"))
+
+
+def _rollback(service, entries: list[dict]) -> tuple[int, int]:
+    """Restore old title/description for every pushed entry. Returns (restored, errors)."""
+    restored = 0
+    errors = 0
+    for e in entries:
+        if not e.get("pushed"):
+            continue
+        try:
+            update_video(service, e["video_id"], e["old_title"], e["old_description"])
+            restored += 1
+            print(f"  restored: {e['video_id']}")
+        except Exception as ex:
+            errors += 1
+            print(f"  ERROR {e['video_id']}: {ex}", file=sys.stderr)
+    return restored, errors
 
 
 def _collect_videos(service, video_id_filter: list[str], season_filter: list[int],
@@ -120,6 +167,68 @@ def _gather_schedules(years: Iterable[int], refresh: bool, log_dir: Path) -> lis
     return all_games
 
 
+def _plan_videos(
+    videos: list[Video],
+    games: list[Game],
+    team_index,
+    abbrev,
+    template: str,
+    log_dir: Path,
+) -> tuple[list[tuple[Video, str, str]], dict[str, int]]:
+    """Match each video to a game and build its new title/description.
+
+    A failure while processing one video is logged as `processing_error` and
+    must never abort the rest of the run.
+    """
+    planned: list[tuple[Video, str, str]] = []
+    counts: dict[str, int] = defaultdict(int)
+
+    for video in videos:
+        try:
+            teams = parse_teams(video.title, team_index)
+            if teams is None:
+                _log_manual_review(log_dir, video=video, reason="no_teams_parsed")
+                counts["no_teams_parsed"] += 1
+                continue
+            # Prefer date embedded in the title (more accurate than publishedAt,
+            # which lags by upload/edit time). Use a tight ±2-day window when we
+            # have a title date; widen to ±14 days for publishedAt fallback.
+            title_date = parse_date_from_title(video.title)
+            if title_date is not None:
+                result = match_video_to_game(video, teams, games, match_date=title_date, window_days=2)
+            else:
+                result = match_video_to_game(video, teams, games, window_days=14)
+            if isinstance(result, NoMatch):
+                _log_manual_review(log_dir, video=video, reason="no_match", details=result.reason)
+                counts["no_match"] += 1
+                continue
+            if isinstance(result, AmbiguousMatch):
+                details = ", ".join(f"{g.season}-W{g.week} {g.date}" for g in result.candidates)
+                _log_manual_review(log_dir, video=video, reason="ambiguous_match", details=details)
+                counts["ambiguous_match"] += 1
+                continue
+            assert isinstance(result, Matched)
+
+            new_title = build_new_title(result.game, abbrev)
+            new_description = build_new_description(result.game, abbrev, template)
+
+            if result.game.venue is None:
+                _log_manual_review(log_dir, video=video, reason="missing_venue",
+                                   details=f"{result.game.season}-W{result.game.week} {result.game.date}")
+                counts["missing_venue"] += 1
+
+            _log_dry_run(log_dir, video=video, new_title=new_title)
+            _log_description_change(log_dir, video=video, new_description=new_description)
+            planned.append((video, new_title, new_description))
+            counts["planned"] += 1
+        except Exception as e:
+            _log_manual_review(log_dir, video=video, reason="processing_error", details=repr(e))
+            counts["processing_error"] += 1
+            print(f"WARN: error processing {video.id} ({video.title!r}): {e}", file=sys.stderr)
+
+    return planned, counts
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Normalize PUL YouTube full-game titles and descriptions.")
     mode = parser.add_mutually_exclusive_group()
@@ -130,19 +239,41 @@ def main(argv: list[str] | None = None) -> int:
                         help="restrict to video ID(s); accepts bare IDs or YouTube URLs")
     parser.add_argument("--refresh-schedule", action="store_true", help="re-scrape stats hub")
     parser.add_argument("--skip-unchanged", action="store_true", help="(with --apply) skip videos where computed title/desc match current")
-    parser.add_argument("--log-dir", type=Path, default=LOG_DIR_DEFAULT)
+    parser.add_argument("--log-dir", type=Path, default=LOG_DIR_DEFAULT,
+                        help="base directory for per-run log folders")
     parser.add_argument("--channel-handle", default=DEFAULT_CHANNEL_HANDLE,
                         help=f"YouTube handle of the channel to operate on (default: {DEFAULT_CHANNEL_HANDLE})")
+    parser.add_argument("--rollback", type=Path, metavar="RUN_DIR_OR_BACKUP_JSON",
+                        help="restore old titles/descriptions from a previous run's backup.json")
     args = parser.parse_args(argv)
 
     if args.apply:
         args.dry_run = False
 
+    if args.rollback:
+        entries = _load_backup(args.rollback)
+        pushed = [e for e in entries if e.get("pushed")]
+        if not pushed:
+            print("Nothing to roll back: no pushed entries in that backup.")
+            return 0
+        print(f"About to restore old title/description for {len(pushed)} video(s):")
+        for e in pushed:
+            print(f"  {e['video_id']}: {e['new_title']!r} -> {e['old_title']!r}")
+        answer = input("Proceed? [y/N]: ").strip().lower()
+        if answer != "y":
+            print("Aborted. No videos restored.")
+            return 1
+        service = build_service(get_credentials())
+        restored, errors = _rollback(service, entries)
+        print(f"Done. Restored: {restored}. Errors: {errors}.")
+        return 0 if errors == 0 else 1
+
     # Normalize --video-id values: accept bare IDs or YouTube URLs.
     args.video_id = [_extract_video_id(v) for v in args.video_id]
 
-    log_dir: Path = args.log_dir
-    _ensure_clean_log_dir(log_dir)
+    log_dir = _run_log_dir(args.log_dir, datetime.datetime.now())
+    log_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Logging this run to {log_dir}\\")
 
     abbrev = load_abbreviations(TEAM_ABBREVIATIONS_PATH)
     team_index = load_team_index(json.loads(TEAM_ABBREVIATIONS_PATH.read_text(encoding="utf-8")))
@@ -159,46 +290,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Loading schedules for years: {sorted(years_needed)}")
     games = _gather_schedules(years_needed, args.refresh_schedule, log_dir)
 
-    planned: list[tuple[Video, str, str]] = []  # (video, new_title, new_description)
-    counts: dict[str, int] = defaultdict(int)
-
-    for video in videos:
-        teams = parse_teams(video.title, team_index)
-        if teams is None:
-            _log_manual_review(log_dir, video=video, reason="no_teams_parsed")
-            counts["no_teams_parsed"] += 1
-            continue
-        # Prefer date embedded in the title (more accurate than publishedAt,
-        # which lags by upload/edit time). Use a tight ±2-day window when we
-        # have a title date; widen to ±14 days for publishedAt fallback.
-        title_date = parse_date_from_title(video.title)
-        if title_date is not None:
-            result = match_video_to_game(video, teams, games, match_date=title_date, window_days=2)
-        else:
-            result = match_video_to_game(video, teams, games, window_days=14)
-        if isinstance(result, NoMatch):
-            _log_manual_review(log_dir, video=video, reason="no_match", details=result.reason)
-            counts["no_match"] += 1
-            continue
-        if isinstance(result, AmbiguousMatch):
-            details = ", ".join(f"{g.season}-W{g.week} {g.date}" for g in result.candidates)
-            _log_manual_review(log_dir, video=video, reason="ambiguous_match", details=details)
-            counts["ambiguous_match"] += 1
-            continue
-        assert isinstance(result, Matched)
-
-        new_title = build_new_title(result.game, abbrev)
-        new_description = build_new_description(result.game, abbrev, template)
-
-        if result.game.venue is None:
-            _log_manual_review(log_dir, video=video, reason="missing_venue",
-                               details=f"{result.game.season}-W{result.game.week} {result.game.date}")
-            counts["missing_venue"] += 1
-
-        _log_dry_run(log_dir, video=video, new_title=new_title)
-        _log_description_change(log_dir, video=video, new_description=new_description)
-        planned.append((video, new_title, new_description))
-        counts["planned"] += 1
+    planned, counts = _plan_videos(videos, games, team_index, abbrev, template, log_dir)
 
     print()
     print("Summary:")
@@ -222,7 +314,12 @@ def main(argv: list[str] | None = None) -> int:
         print("Aborted. No videos updated.")
         return 1
 
-    pushed = 0
+    # Write the rollback backup BEFORE touching YouTube, then re-write it with
+    # pushed flags as we go so a crash mid-run still leaves an accurate record.
+    backup_path = log_dir / "backup.json"
+    _write_backup(backup_path, planned)
+
+    pushed_ids: set[str] = set()
     skipped = 0
     for video, new_title, new_description in planned:
         if args.skip_unchanged and new_title == video.title and new_description == video.description:
@@ -230,14 +327,16 @@ def main(argv: list[str] | None = None) -> int:
             continue
         try:
             update_video(service, video.id, new_title, new_description)
-            pushed += 1
+            pushed_ids.add(video.id)
+            _write_backup(backup_path, planned, pushed_ids)
             print(f"  pushed: {video.id}")
         except Exception as e:
             _log_manual_review(log_dir, video=video, reason="api_error", details=str(e))
             print(f"  ERROR {video.id}: {e}", file=sys.stderr)
 
     print()
-    print(f"Done. Pushed: {pushed}. Skipped (unchanged): {skipped}.")
+    print(f"Done. Pushed: {len(pushed_ids)}. Skipped (unchanged): {skipped}.")
+    print(f"Rollback available: python -m src.cli --rollback {backup_path}")
     return 0
 
 

@@ -21,7 +21,11 @@ def parse_iso8601_duration(s: str) -> int:
     """Parse YouTube's ISO 8601 duration like 'PT1H30M15S' to total seconds.
 
     Only handles H/M/S — YouTube videos don't use D/Y components in duration.
+    Live and upcoming streams report "P0D"; treat those as 0 seconds so they
+    fall below the full-game threshold instead of crashing the listing.
     """
+    if s == "P0D":
+        return 0
     m = re.fullmatch(
         r"PT(?:(?P<h>\d+)H)?(?:(?P<m>\d+)M)?(?:(?P<s>\d+)S)?", s
     )
