@@ -4,14 +4,19 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 
 SCOPES = ["https://www.googleapis.com/auth/youtube"]
-TOKEN_PATH = Path("token.json")
-CLIENT_SECRETS_CANDIDATES = [Path("client_secrets.json"), Path("client_secrets.json.json")]
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+TOKEN_PATH = PROJECT_ROOT / "token.json"
+CLIENT_SECRETS_CANDIDATES = [
+    PROJECT_ROOT / "client_secrets.json",
+    PROJECT_ROOT / "client_secrets.json.json",
+]
 
 
 class CredentialsNotFound(RuntimeError):
@@ -34,14 +39,14 @@ def _find_client_secrets() -> Path:
     )
 
 
-def get_credentials() -> Credentials:
+def get_credentials(token_path: Path = TOKEN_PATH) -> Credentials:
     creds: Credentials | None = None
-    if TOKEN_PATH.exists():
+    if token_path.exists():
         try:
-            creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
+            creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
         except (ValueError, OSError) as e:
             print(
-                f"WARNING: could not load {TOKEN_PATH} ({e}). Re-authenticating.",
+                f"WARNING: could not load {token_path} ({e}). Re-authenticating.",
                 file=sys.stderr,
             )
             creds = None
@@ -50,9 +55,15 @@ def get_credentials() -> Credentials:
         return creds
 
     if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        TOKEN_PATH.write_text(creds.to_json(), encoding="utf-8")
-        return creds
+        try:
+            creds.refresh(Request())
+            token_path.write_text(creds.to_json(), encoding="utf-8")
+            return creds
+        except RefreshError as e:
+            print(
+                f"WARNING: token refresh failed ({e}). Re-authenticating.",
+                file=sys.stderr,
+            )
 
     secrets_path = _find_client_secrets()
     flow = InstalledAppFlow.from_client_secrets_file(str(secrets_path), SCOPES)
@@ -65,5 +76,5 @@ def get_credentials() -> Credentials:
             "(A local server is listening for the redirect.)\n"
         ),
     )
-    TOKEN_PATH.write_text(creds.to_json(), encoding="utf-8")
+    token_path.write_text(creds.to_json(), encoding="utf-8")
     return creds

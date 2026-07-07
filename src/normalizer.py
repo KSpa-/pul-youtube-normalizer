@@ -34,17 +34,23 @@ class Abbreviations:
     short_by_full: dict[str, str]
 
 
-def load_abbreviations(path: Path) -> Abbreviations:
-    """Load team_abbreviations.json and return an Abbreviations record.
+def abbreviations_from_teams(raw: dict) -> Abbreviations:
+    """Build an Abbreviations record from raw team registry data.
 
-    The JSON shape is `{canonical_full_name: {"short": str, "aliases": [...]}}`.
+    The JSON shape is `{canonical_full_name: {"short": str, ...}}`.
     Only the `short` field is used here; aliases are consumed by title_parser.
-    Raises FileNotFoundError / json.JSONDecodeError / KeyError on bad input.
     """
-    raw = json.loads(path.read_text(encoding="utf-8"))
     return Abbreviations(
         short_by_full={full: meta["short"] for full, meta in raw.items()}
     )
+
+
+def load_abbreviations(path: Path) -> Abbreviations:
+    """Load a team registry JSON file and return an Abbreviations record.
+
+    Raises FileNotFoundError / json.JSONDecodeError / KeyError on bad input.
+    """
+    return abbreviations_from_teams(json.loads(path.read_text(encoding="utf-8")))
 
 
 # Match result types — use isinstance checks at call sites.

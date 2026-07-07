@@ -9,7 +9,14 @@
     "tiktok": null,
     "youtube": null,
     "email": "info@atlantasoulultimate.com",
-    "shop": "https://www.atlantasoulultimate.com/team-store"
+    "shop": "https://www.atlantasoulultimate.com/team-store",
+    "short": "Atlanta Soul",
+    "aliases": [
+      "Soul",
+      "ATL Soul",
+      "ATL"
+    ],
+    "hub_names": []
   },
   "Austin Torch": {
     "established": "2019",
@@ -21,7 +28,14 @@
     "tiktok": null,
     "youtube": null,
     "email": "atxtorch@gmail.com",
-    "shop": null
+    "shop": null,
+    "short": "Austin Torch",
+    "aliases": [
+      "Torch",
+      "AUS Torch",
+      "AUS"
+    ],
+    "hub_names": []
   },
   "Columbus Pride": {
     "established": "2019",
@@ -33,7 +47,14 @@
     "tiktok": null,
     "youtube": null,
     "email": null,
-    "shop": null
+    "shop": null,
+    "short": "Columbus Pride",
+    "aliases": [
+      "Pride",
+      "Cbus Pride",
+      "CBUS"
+    ],
+    "hub_names": []
   },
   "DC Shadow": {
     "established": "2020",
@@ -45,7 +66,14 @@
     "tiktok": null,
     "youtube": null,
     "email": null,
-    "shop": null
+    "shop": null,
+    "short": "DC Shadow",
+    "aliases": [
+      "Shadow",
+      "Washington Shadow",
+      "DC"
+    ],
+    "hub_names": []
   },
   "Indy Red": {
     "established": "2018",
@@ -57,7 +85,16 @@
     "tiktok": null,
     "youtube": null,
     "email": "indyredultimate@gmail.com",
-    "shop": null
+    "shop": null,
+    "short": "Indy Red",
+    "aliases": [
+      "Indianapolis Red",
+      "Indianapolis",
+      "IND"
+    ],
+    "hub_names": [
+      "Indianapolis Red"
+    ]
   },
   "LA Astra": {
     "established": "2019",
@@ -69,7 +106,14 @@
     "tiktok": null,
     "youtube": null,
     "email": "team@losangelesastra.com",
-    "shop": "https://losangelesastra.com/store"
+    "shop": "https://losangelesastra.com/store",
+    "short": "LA Astra",
+    "aliases": [
+      "Astra",
+      "Los Angeles Astra",
+      "LA"
+    ],
+    "hub_names": []
   },
   "Medellin Revolution": {
     "established": "2004",
@@ -81,7 +125,14 @@
     "tiktok": null,
     "youtube": null,
     "email": null,
-    "shop": null
+    "shop": null,
+    "short": "Medellin Rev",
+    "aliases": [
+      "Medellin",
+      "Revolution",
+      "Rev"
+    ],
+    "hub_names": []
   },
   "Milwaukee Monarchs": {
     "established": "2020",
@@ -93,7 +144,14 @@
     "tiktok": null,
     "youtube": null,
     "email": "milwaukeemonarchs@gmail.com",
-    "shop": "https://shop.milwaukeemonarchs.com"
+    "shop": "https://shop.milwaukeemonarchs.com",
+    "short": "Milwaukee Monarchs",
+    "aliases": [
+      "Monarchs",
+      "MIL Monarchs",
+      "MIL"
+    ],
+    "hub_names": []
   },
   "Minnesota Strike": {
     "established": "2019",
@@ -105,7 +163,15 @@
     "tiktok": null,
     "youtube": null,
     "email": null,
-    "shop": null
+    "shop": null,
+    "short": "Minn Strike",
+    "aliases": [
+      "Strike",
+      "MN Strike",
+      "Minnesota",
+      "MIN"
+    ],
+    "hub_names": []
   },
   "Nashville NightShade": {
     "established": "2018",
@@ -117,7 +183,18 @@
     "tiktok": null,
     "youtube": null,
     "email": "nashvillenightshade@gmail.com",
-    "shop": null
+    "shop": null,
+    "short": "Nashville Shade",
+    "aliases": [
+      "Nashville Nightshade",
+      "Nightshade",
+      "Shade",
+      "NSH NightShade",
+      "NSH"
+    ],
+    "hub_names": [
+      "Nashville Nightshade"
+    ]
   },
   "New York Gridlock": {
     "established": "2019",
@@ -129,7 +206,15 @@
     "tiktok": null,
     "youtube": null,
     "email": "newyorkgridlock@gmail.com",
-    "shop": null
+    "shop": null,
+    "short": "NY Gridlock",
+    "aliases": [
+      "Gridlock",
+      "NYC Gridlock",
+      "NY",
+      "NYC"
+    ],
+    "hub_names": []
   },
   "Philadelphia Surge": {
     "established": "2023",
@@ -141,7 +226,15 @@
     "tiktok": null,
     "youtube": null,
     "email": "jordan@philadelphiasurge.com",
-    "shop": null
+    "shop": null,
+    "short": "Philly Surge",
+    "aliases": [
+      "Surge",
+      "Philly Surge",
+      "Philadelphia",
+      "PHI"
+    ],
+    "hub_names": []
   },
   "Portland Rising": {
     "established": "2020",
@@ -153,7 +246,14 @@
     "tiktok": null,
     "youtube": "https://www.youtube.com/channel/UC_DLGWL9LP34-1ha86qA8rw",
     "email": "info@portlandrising.me",
-    "shop": "https://www.portlandrising.me/shop"
+    "shop": "https://www.portlandrising.me/shop",
+    "short": "Portland Rising",
+    "aliases": [
+      "Rising",
+      "PDX Rising",
+      "PDX"
+    ],
+    "hub_names": []
   },
   "Raleigh Radiance": {
     "established": "2018",
@@ -165,6 +265,13 @@
     "tiktok": "https://www.tiktok.com/@raleighradiance",
     "youtube": null,
     "email": "raleighradiance@gmail.com",
-    "shop": null
+    "shop": null,
+    "short": "Raleigh Radiance",
+    "aliases": [
+      "Radiance",
+      "RAL Radiance",
+      "RAL"
+    ],
+    "hub_names": []
   }
 }

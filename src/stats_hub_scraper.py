@@ -14,7 +14,7 @@ from typing import Optional
 import requests
 from bs4 import BeautifulSoup
 
-from team_registry import TEAM_LOCATIONS
+from team_registry import HUB_TO_CANONICAL, TEAM_LOCATIONS
 
 # Backward-compat alias — prefer importing from team_registry directly.
 TEAM_HOME_LOCATIONS = TEAM_LOCATIONS
@@ -26,28 +26,6 @@ WEEK_WORDS = {
     "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
     "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
     "eleven": 11, "twelve": 12,
-}
-
-# Map every team string the hub uses (as found in data-away / data-home
-# attributes on .game-card elements) to our canonical full name from
-# TEAM_LOCATIONS.  Anything NOT in this map is silently skipped.
-HUB_TO_CANONICAL: dict[str, str] = {
-    "Atlanta Soul":         "Atlanta Soul",
-    "Austin Torch":         "Austin Torch",
-    "Columbus Pride":       "Columbus Pride",
-    "DC Shadow":            "DC Shadow",
-    "Indy Red":             "Indy Red",
-    "Indianapolis Red":     "Indy Red",       # legacy alias
-    "LA Astra":             "LA Astra",
-    "Medellin Revolution":  "Medellin Revolution",
-    "Milwaukee Monarchs":   "Milwaukee Monarchs",
-    "Minnesota Strike":     "Minnesota Strike",
-    "Nashville NightShade": "Nashville NightShade",
-    "Nashville Nightshade": "Nashville NightShade",  # legacy alias
-    "New York Gridlock":    "New York Gridlock",
-    "Philadelphia Surge":   "Philadelphia Surge",
-    "Portland Rising":      "Portland Rising",
-    "Raleigh Radiance":     "Raleigh Radiance",
 }
 
 

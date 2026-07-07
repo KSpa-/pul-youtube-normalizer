@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Iterable
 from urllib.parse import parse_qs, urlparse
 
+import requests
+
 # Make sibling modules importable when run as `python -m src.cli`.
 # pytest handles this via pytest.ini's `pythonpath = src`, but `python -m` does not.
 _SRC_DIR = Path(__file__).resolve().parent
@@ -22,9 +24,9 @@ from normalizer import (  # noqa: E402
     Matched,
     NoMatch,
     Video,
+    abbreviations_from_teams,
     build_new_description,
     build_new_title,
-    load_abbreviations,
     match_video_to_game,
 )
 from stats_hub_scraper import (  # noqa: E402
@@ -32,14 +34,14 @@ from stats_hub_scraper import (  # noqa: E402
     SeasonNotAvailableError,
     get_schedule,
 )
+from team_registry import PROJECT_ROOT, load_teams  # noqa: E402
 from title_parser import load_team_index, parse_date_from_title, parse_teams  # noqa: E402
 from youtube_client import build_service, list_full_game_videos, update_video  # noqa: E402
 
 
-SCHEDULE_CACHE_DIR = Path("schedule_cache")
-LOG_DIR_DEFAULT = Path("logs")
-TEAM_ABBREVIATIONS_PATH = Path("team_abbreviations.json")
-DESCRIPTION_TEMPLATE_PATH = Path("description_template.txt")
+SCHEDULE_CACHE_DIR = PROJECT_ROOT / "schedule_cache"
+LOG_DIR_DEFAULT = PROJECT_ROOT / "logs"
+DESCRIPTION_TEMPLATE_PATH = PROJECT_ROOT / "description_template.txt"
 DEFAULT_CHANNEL_HANDLE = "@premierultimateleague"
 
 
@@ -143,13 +145,26 @@ def _rollback(service, entries: list[dict]) -> tuple[int, int]:
     return restored, errors
 
 
+def _video_season_year(video: Video) -> int:
+    """Best guess at the season a video belongs to.
+
+    Prefer the date embedded in the title — a June 2024 game uploaded in
+    January 2025 belongs to the 2024 season, not 2025. Fall back to the
+    upload year when the title has no date.
+    """
+    title_date = parse_date_from_title(video.title)
+    if title_date is not None:
+        return title_date.year
+    return video.published_at.year
+
+
 def _collect_videos(service, video_id_filter: list[str], season_filter: list[int],
                     channel_handle: str | None) -> list[Video]:
     videos: list[Video] = []
     for v in list_full_game_videos(service, channel_handle=channel_handle):
         if video_id_filter and v.id not in video_id_filter:
             continue
-        if season_filter and v.published_at.year not in season_filter:
+        if season_filter and _video_season_year(v) not in season_filter:
             continue
         videos.append(v)
     return videos
@@ -160,7 +175,7 @@ def _gather_schedules(years: Iterable[int], refresh: bool, log_dir: Path) -> lis
     for year in sorted(set(years)):
         try:
             all_games.extend(get_schedule(year, SCHEDULE_CACHE_DIR, refresh=refresh))
-        except SeasonNotAvailableError as e:
+        except (SeasonNotAvailableError, requests.RequestException) as e:
             with (log_dir / "manual_review.log").open("a", encoding="utf-8") as f:
                 f.write(json.dumps({"reason": "scrape_failed", "season": year, "details": str(e)}) + "\n")
             print(f"WARN: could not load schedule for {year}: {e}", file=sys.stderr)
@@ -275,8 +290,9 @@ def main(argv: list[str] | None = None) -> int:
     log_dir.mkdir(parents=True, exist_ok=True)
     print(f"Logging this run to {log_dir}\\")
 
-    abbrev = load_abbreviations(TEAM_ABBREVIATIONS_PATH)
-    team_index = load_team_index(json.loads(TEAM_ABBREVIATIONS_PATH.read_text(encoding="utf-8")))
+    teams_raw = load_teams()
+    abbrev = abbreviations_from_teams(teams_raw)
+    team_index = load_team_index(teams_raw)
     template = DESCRIPTION_TEMPLATE_PATH.read_text(encoding="utf-8")
 
     creds = get_credentials()
@@ -286,7 +302,7 @@ def main(argv: list[str] | None = None) -> int:
     videos = _collect_videos(service, args.video_id, args.season, args.channel_handle)
     print(f"Found {len(videos)} full-game video(s).")
 
-    years_needed = {v.published_at.year for v in videos}
+    years_needed = {_video_season_year(v) for v in videos}
     print(f"Loading schedules for years: {sorted(years_needed)}")
     games = _gather_schedules(years_needed, args.refresh_schedule, log_dir)
 

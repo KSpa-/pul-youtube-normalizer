@@ -87,6 +87,14 @@ def test_plan_videos_isolates_per_video_errors(tmp_path, team_index):
                for e in entries)
 
 
+def test_default_paths_are_anchored_to_project_root():
+    # The CLI must work no matter what directory it is invoked from.
+    assert cli.SCHEDULE_CACHE_DIR.is_absolute()
+    assert cli.LOG_DIR_DEFAULT.is_absolute()
+    assert cli.DESCRIPTION_TEMPLATE_PATH.is_absolute()
+    assert cli.DESCRIPTION_TEMPLATE_PATH.exists()
+
+
 def test_run_log_dir_is_timestamped_per_run(tmp_path):
     now = datetime.datetime(2026, 7, 6, 20, 45, 12)
     assert _run_log_dir(tmp_path, now) == tmp_path / "run_2026-07-06_20-45-12"
@@ -147,6 +155,45 @@ def test_rollback_counts_errors_and_continues(monkeypatch):
     restored, errors = _rollback(service=None, entries=entries)
     assert restored == 1
     assert errors == 1
+
+
+def test_video_season_year_prefers_title_date():
+    # Game from June 2024 uploaded in January 2025: season year is 2024.
+    v = _video(title="Indy Red @ Nashville Shade 6/22/2024",
+               published="2025-01-10T18:00:00+00:00")
+    assert cli._video_season_year(v) == 2024
+
+
+def test_video_season_year_falls_back_to_published_year():
+    v = _video(title="Indy Red @ Nashville Shade",
+               published="2025-01-10T18:00:00+00:00")
+    assert cli._video_season_year(v) == 2025
+
+
+def test_collect_videos_season_filter_uses_title_date_year(monkeypatch):
+    late_upload = _video(video_id="v1", title="Indy Red @ Nashville Shade 6/22/2024",
+                         published="2025-01-10T18:00:00+00:00")
+    next_season = _video(video_id="v2", title="Indy Red @ Nashville Shade 5/1/2025",
+                         published="2025-05-02T18:00:00+00:00")
+    monkeypatch.setattr(
+        cli, "list_full_game_videos",
+        lambda service, channel_handle=None: iter([late_upload, next_season]),
+    )
+    vids = cli._collect_videos(None, [], [2024], None)
+    assert [v.id for v in vids] == ["v1"]
+
+
+def test_gather_schedules_survives_network_errors(tmp_path, monkeypatch):
+    import requests
+
+    def boom(year, cache_dir, refresh=False):
+        raise requests.ConnectionError("dns fail")
+
+    monkeypatch.setattr(cli, "get_schedule", boom)
+    games = cli._gather_schedules([2024], refresh=False, log_dir=tmp_path)
+    assert games == []
+    log = (tmp_path / "manual_review.log").read_text(encoding="utf-8")
+    assert "scrape_failed" in log
 
 
 @pytest.mark.parametrize("s,expected", [

@@ -1,14 +1,12 @@
 import datetime
-import json
-from pathlib import Path
 import pytest
 from title_parser import parse_teams, load_team_index, parse_date_from_title, TeamIndex
 
 
 @pytest.fixture(scope="module")
 def team_index() -> TeamIndex:
-    raw = json.loads(Path("team_abbreviations.json").read_text(encoding="utf-8"))
-    return load_team_index(raw)
+    from team_registry import load_teams
+    return load_team_index(load_teams())
 
 
 @pytest.mark.parametrize("title,expected", [

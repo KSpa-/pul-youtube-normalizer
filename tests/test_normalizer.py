@@ -1,5 +1,4 @@
 import datetime
-import json
 from pathlib import Path
 import pytest
 
@@ -38,7 +37,8 @@ def _video(video_id="v1", title="Indy Red @ Nashville Shade",
 
 @pytest.fixture(scope="module")
 def abbrev():
-    return load_abbreviations(Path("team_abbreviations.json"))
+    from team_registry import TEAMS_INFO_PATH
+    return load_abbreviations(TEAMS_INFO_PATH)
 
 
 # --- match_video_to_game ---
