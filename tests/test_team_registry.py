@@ -1,5 +1,5 @@
-import team_registry
-from team_registry import (
+import pul_normalizer.team_registry as team_registry
+from pul_normalizer.team_registry import (
     CANONICAL_TEAM_NAMES,
     HUB_TO_CANONICAL,
     TEAM_LOCATIONS,

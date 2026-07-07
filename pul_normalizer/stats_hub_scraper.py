@@ -15,7 +15,7 @@ from typing import Optional
 import requests
 from bs4 import BeautifulSoup
 
-from team_registry import HUB_TO_CANONICAL, TEAM_LOCATIONS
+from .team_registry import HUB_TO_CANONICAL, TEAM_LOCATIONS
 
 # Backward-compat alias — prefer importing from team_registry directly.
 TEAM_HOME_LOCATIONS = TEAM_LOCATIONS

@@ -1,12 +1,12 @@
 from pathlib import Path
 import datetime
 import pytest
-from stats_hub_scraper import (
+from pul_normalizer.stats_hub_scraper import (
     parse_schedule_html,
     week_word_to_int,
     Game,
 )
-from team_registry import TEAM_LOCATIONS
+from pul_normalizer.team_registry import TEAM_LOCATIONS
 
 
 def test_team_home_locations_covers_all_pul_teams():

@@ -3,8 +3,8 @@ import json
 
 import pytest
 
-import cli
-from cli import (
+import pul_normalizer.cli as cli
+from pul_normalizer.cli import (
     _extract_video_id,
     _load_backup,
     _plan_videos,
@@ -12,9 +12,9 @@ from cli import (
     _run_log_dir,
     _write_backup,
 )
-from normalizer import Abbreviations, Video
-from stats_hub_scraper import Game
-from title_parser import load_team_index
+from pul_normalizer.normalizer import Abbreviations, Video
+from pul_normalizer.stats_hub_scraper import Game
+from pul_normalizer.title_parser import load_team_index
 
 
 def _video(video_id="v1", title="Indy Red @ Nashville Shade 4/15/2024",

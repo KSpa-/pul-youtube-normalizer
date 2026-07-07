@@ -1,7 +1,7 @@
 import pytest
 from google.auth.exceptions import RefreshError
 
-import auth
+import pul_normalizer.auth as auth
 
 
 class StubCreds:

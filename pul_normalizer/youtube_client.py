@@ -10,7 +10,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google.oauth2.credentials import Credentials
 
-from normalizer import Video
+from .normalizer import Video
 
 
 FULL_GAME_MIN_SECONDS = 3600  # > 1 hour

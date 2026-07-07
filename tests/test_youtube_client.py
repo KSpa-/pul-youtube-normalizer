@@ -2,8 +2,8 @@ import httplib2
 import pytest
 from googleapiclient.errors import HttpError
 
-import youtube_client
-from youtube_client import get_videos_by_ids, parse_iso8601_duration
+import pul_normalizer.youtube_client as youtube_client
+from pul_normalizer.youtube_client import get_videos_by_ids, parse_iso8601_duration
 
 
 def _http_error(status: int, headers: dict | None = None) -> HttpError:

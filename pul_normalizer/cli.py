@@ -12,14 +12,8 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
-# Make sibling modules importable when run as `python -m src.cli`.
-# pytest handles this via pytest.ini's `pythonpath = src`, but `python -m` does not.
-_SRC_DIR = Path(__file__).resolve().parent
-if str(_SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(_SRC_DIR))
-
-from auth import get_credentials  # noqa: E402
-from normalizer import (  # noqa: E402
+from .auth import get_credentials
+from .normalizer import (
     AmbiguousMatch,
     Matched,
     NoMatch,
@@ -29,14 +23,14 @@ from normalizer import (  # noqa: E402
     build_new_title,
     match_video_to_game,
 )
-from stats_hub_scraper import (  # noqa: E402
+from .stats_hub_scraper import (
     Game,
     SeasonNotAvailableError,
     get_schedule,
 )
-from team_registry import PROJECT_ROOT, load_teams  # noqa: E402
-from title_parser import load_team_index, parse_date_from_title, parse_teams  # noqa: E402
-from youtube_client import (  # noqa: E402
+from .team_registry import PROJECT_ROOT, load_teams
+from .title_parser import load_team_index, parse_date_from_title, parse_teams
+from .youtube_client import (
     FULL_GAME_MIN_SECONDS,
     build_service,
     get_videos_by_ids,
@@ -286,7 +280,10 @@ def _split_unchanged(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Normalize PUL YouTube full-game titles and descriptions.")
+    parser = argparse.ArgumentParser(
+        prog="pul-normalizer",
+        description="Normalize PUL YouTube full-game titles and descriptions.",
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true", default=True, help="(default) preview changes, no writes")
     mode.add_argument("--apply", action="store_true", help="push changes to YouTube after confirmation")
@@ -396,7 +393,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print()
     print(f"Done. Pushed: {len(pushed_ids)}. Skipped (unchanged): {skipped}.")
-    print(f"Rollback available: python -m src.cli --rollback {backup_path}")
+    print(f"Rollback available: python -m pul_normalizer --rollback {backup_path}")
     return 0
 
 

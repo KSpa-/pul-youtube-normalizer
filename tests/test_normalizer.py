@@ -2,8 +2,8 @@ import datetime
 from pathlib import Path
 import pytest
 
-from stats_hub_scraper import Game
-from normalizer import (
+from pul_normalizer.stats_hub_scraper import Game
+from pul_normalizer.normalizer import (
     Video,
     NoMatch,
     AmbiguousMatch,
@@ -37,7 +37,7 @@ def _video(video_id="v1", title="Indy Red @ Nashville Shade",
 
 @pytest.fixture(scope="module")
 def abbrev():
-    from team_registry import TEAMS_INFO_PATH
+    from pul_normalizer.team_registry import TEAMS_INFO_PATH
     return load_abbreviations(TEAMS_INFO_PATH)
 
 

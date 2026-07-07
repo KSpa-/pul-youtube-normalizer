@@ -1,11 +1,11 @@
 import datetime
 import pytest
-from title_parser import parse_teams, load_team_index, parse_date_from_title, TeamIndex
+from pul_normalizer.title_parser import parse_teams, load_team_index, parse_date_from_title, TeamIndex
 
 
 @pytest.fixture(scope="module")
 def team_index() -> TeamIndex:
-    from team_registry import load_teams
+    from pul_normalizer.team_registry import load_teams
     return load_team_index(load_teams())
 
 

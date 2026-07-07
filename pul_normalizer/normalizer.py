@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Union
 
-from stats_hub_scraper import Game
+from .stats_hub_scraper import Game
 
 
 MATCH_WINDOW_DAYS = 7
