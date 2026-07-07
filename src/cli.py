@@ -36,7 +36,13 @@ from stats_hub_scraper import (  # noqa: E402
 )
 from team_registry import PROJECT_ROOT, load_teams  # noqa: E402
 from title_parser import load_team_index, parse_date_from_title, parse_teams  # noqa: E402
-from youtube_client import build_service, list_full_game_videos, update_video  # noqa: E402
+from youtube_client import (  # noqa: E402
+    FULL_GAME_MIN_SECONDS,
+    build_service,
+    get_videos_by_ids,
+    list_full_game_videos,
+    update_video,
+)
 
 
 SCHEDULE_CACHE_DIR = PROJECT_ROOT / "schedule_cache"
@@ -49,12 +55,16 @@ def _extract_video_id(s: str) -> str:
     """Return the bare YouTube video ID from either a URL or an already-bare ID.
 
     Accepts https://youtu.be/<id>, https://www.youtube.com/watch?v=<id>, and
-    plain `<id>` strings.
+    plain `<id>` strings. Raises ValueError for any URL a video ID cannot be
+    extracted from — silently passing it through would just produce a
+    mystifying "Found 0 videos" later.
     """
     if "youtu.be/" in s or "youtube.com/" in s:
         u = urlparse(s)
         if u.netloc.endswith("youtu.be"):
-            return u.path.lstrip("/").split("/")[0]
+            vid = u.path.lstrip("/").split("/")[0]
+            if vid:
+                return vid
         if "youtube.com" in u.netloc:
             qs = parse_qs(u.query)
             if "v" in qs:
@@ -63,6 +73,9 @@ def _extract_video_id(s: str) -> str:
             parts = [p for p in u.path.split("/") if p]
             if parts and parts[0] in ("shorts", "embed", "live") and len(parts) > 1:
                 return parts[1]
+        raise ValueError(f"Cannot extract a video ID from URL: {s!r}")
+    if "://" in s:
+        raise ValueError(f"Not a YouTube URL: {s!r}")
     return s
 
 
@@ -160,14 +173,23 @@ def _video_season_year(video: Video) -> int:
 
 def _collect_videos(service, video_id_filter: list[str], season_filter: list[int],
                     channel_handle: str | None) -> list[Video]:
-    videos: list[Video] = []
-    for v in list_full_game_videos(service, channel_handle=channel_handle):
-        if video_id_filter and v.id not in video_id_filter:
-            continue
-        if season_filter and _video_season_year(v) not in season_filter:
-            continue
-        videos.append(v)
-    return videos
+    if video_id_filter:
+        # Explicit IDs: fetch directly instead of paging the whole channel.
+        candidates = [
+            v for v in get_videos_by_ids(service, video_id_filter)
+            if v.duration_seconds >= FULL_GAME_MIN_SECONDS
+        ]
+        dropped = set(video_id_filter) - {v.id for v in candidates}
+        for vid in sorted(dropped):
+            print(f"WARN: requested video {vid} not found or shorter than "
+                  f"{FULL_GAME_MIN_SECONDS // 3600}h; skipping.", file=sys.stderr)
+    else:
+        candidates = list_full_game_videos(service, channel_handle=channel_handle)
+
+    return [
+        v for v in candidates
+        if not season_filter or _video_season_year(v) in season_filter
+    ]
 
 
 def _gather_schedules(years: Iterable[int], refresh: bool, log_dir: Path) -> list[Game]:
@@ -244,6 +266,25 @@ def _plan_videos(
     return planned, counts
 
 
+def _split_unchanged(
+    planned: list[tuple[Video, str, str]], skip_unchanged: bool
+) -> tuple[list[tuple[Video, str, str]], int]:
+    """Partition planned changes into (to_push, skipped_count).
+
+    With skip_unchanged, videos whose computed title and description already
+    match the current ones are dropped — before the confirmation prompt, so
+    the number the user confirms is the number actually pushed.
+    """
+    if not skip_unchanged:
+        return list(planned), 0
+    to_push = [
+        (video, new_title, new_description)
+        for video, new_title, new_description in planned
+        if not (new_title == video.title and new_description == video.description)
+    ]
+    return to_push, len(planned) - len(to_push)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Normalize PUL YouTube full-game titles and descriptions.")
     mode = parser.add_mutually_exclusive_group()
@@ -284,7 +325,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if errors == 0 else 1
 
     # Normalize --video-id values: accept bare IDs or YouTube URLs.
-    args.video_id = [_extract_video_id(v) for v in args.video_id]
+    try:
+        args.video_id = [_extract_video_id(v) for v in args.video_id]
+    except ValueError as e:
+        parser.error(f"--video-id: {e}")
 
     log_dir = _run_log_dir(args.log_dir, datetime.datetime.now())
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -319,10 +363,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     # --apply path: confirm
+    to_push, skipped = _split_unchanged(planned, args.skip_unchanged)
     print()
-    print(f"About to update {counts['planned']} videos on YouTube.")
-    print(f"  - {counts['planned']} title changes")
-    print(f"  - {counts['planned']} description changes")
+    if skipped:
+        print(f"Skipping {skipped} unchanged video(s).")
+    if not to_push:
+        print("Nothing to push.")
+        return 0
+    print(f"About to update {len(to_push)} videos on YouTube (title + description).")
     if counts["missing_venue"]:
         print(f"  - {counts['missing_venue']} videos flagged for manual review (still pushed with best-effort content)")
     answer = input("Proceed? [y/N]: ").strip().lower()
@@ -333,18 +381,14 @@ def main(argv: list[str] | None = None) -> int:
     # Write the rollback backup BEFORE touching YouTube, then re-write it with
     # pushed flags as we go so a crash mid-run still leaves an accurate record.
     backup_path = log_dir / "backup.json"
-    _write_backup(backup_path, planned)
+    _write_backup(backup_path, to_push)
 
     pushed_ids: set[str] = set()
-    skipped = 0
-    for video, new_title, new_description in planned:
-        if args.skip_unchanged and new_title == video.title and new_description == video.description:
-            skipped += 1
-            continue
+    for video, new_title, new_description in to_push:
         try:
             update_video(service, video.id, new_title, new_description)
             pushed_ids.add(video.id)
-            _write_backup(backup_path, planned, pushed_ids)
+            _write_backup(backup_path, to_push, pushed_ids)
             print(f"  pushed: {video.id}")
         except Exception as e:
             _log_manual_review(log_dir, video=video, reason="api_error", details=str(e))

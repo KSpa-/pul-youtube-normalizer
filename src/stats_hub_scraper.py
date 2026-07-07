@@ -7,6 +7,7 @@ from __future__ import annotations
 import datetime
 import json
 import re
+import sys
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Optional
@@ -28,6 +29,15 @@ WEEK_WORDS = {
     "eleven": 11, "twelve": 12,
 }
 
+# Sentinel week numbers for postseason rounds — must stay in sync with
+# normalizer.POSTSEASON_LABELS.
+POSTSEASON_WEEKS = {
+    "semifinals": 98,
+    "semifinal": 98,
+    "finals": 99,
+    "final": 99,
+}
+
 
 class SeasonNotAvailableError(Exception):
     pass
@@ -47,7 +57,8 @@ class Game:
 def week_word_to_int(s: str) -> int:
     """Parse a week label into an integer.
 
-    Accepts forms like "Week One", "Week 11", "week 3", "Three", or "3".
+    Accepts forms like "Week One", "Week 11", "week 3", "Three", or "3",
+    plus postseason labels ("Semifinals" -> 98, "Finals" -> 99).
     The optional "Week" prefix is stripped before matching. Falls back to
     the first numeric run in the string. Raises ValueError if nothing parses.
     """
@@ -56,6 +67,8 @@ def week_word_to_int(s: str) -> int:
         return int(s)
     if s in WEEK_WORDS:
         return WEEK_WORDS[s]
+    if s in POSTSEASON_WEEKS:
+        return POSTSEASON_WEEKS[s]
     m = re.search(r"\d+", s)
     if m:
         return int(m.group(0))
@@ -98,11 +111,19 @@ def parse_schedule_html(html: str, season: int) -> list[Game]:
         try:
             week_num = int(raw_week)
         except (ValueError, TypeError):
-            # Fallback: parse word-style week labels from section heading
+            # Fallback: parse week labels ("Week Three", "Semifinals", ...)
+            # from the section heading. A section we can't parse is skipped
+            # with a warning — it must never abort the whole season scrape.
             heading = section.find("h2")
-            if heading:
-                week_num = week_word_to_int(heading.get_text())
-            else:
+            heading_text = heading.get_text() if heading else ""
+            try:
+                week_num = week_word_to_int(heading_text)
+            except ValueError:
+                print(
+                    f"WARN: skipping schedule section with unparseable week "
+                    f"(data-week-content={raw_week!r}, heading={heading_text.strip()!r})",
+                    file=sys.stderr,
+                )
                 continue
 
         for card in section.find_all(class_="game-card"):

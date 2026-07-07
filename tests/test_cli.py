@@ -170,6 +170,27 @@ def test_video_season_year_falls_back_to_published_year():
     assert cli._video_season_year(v) == 2025
 
 
+def test_collect_videos_fetches_directly_when_ids_given(monkeypatch, capsys):
+    # Explicit --video-id must not burn quota listing the whole channel.
+    full_game = _video(video_id="v1")
+    short_clip = _video(video_id="v2")
+    short_clip.duration_seconds = 120
+    monkeypatch.setattr(cli, "get_videos_by_ids",
+                        lambda service, ids: iter([full_game, short_clip]))
+
+    def full_listing_forbidden(*args, **kwargs):
+        raise AssertionError("full channel listing should not run for explicit IDs")
+
+    monkeypatch.setattr(cli, "list_full_game_videos", full_listing_forbidden)
+
+    vids = cli._collect_videos(None, ["v1", "v2", "vmissing"], [], None)
+    assert [v.id for v in vids] == ["v1"]
+    # Videos that were requested but dropped (too short / not found) are reported.
+    err = capsys.readouterr().err
+    assert "v2" in err
+    assert "vmissing" in err
+
+
 def test_collect_videos_season_filter_uses_title_date_year(monkeypatch):
     late_upload = _video(video_id="v1", title="Indy Red @ Nashville Shade 6/22/2024",
                          published="2025-01-10T18:00:00+00:00")
@@ -181,6 +202,21 @@ def test_collect_videos_season_filter_uses_title_date_year(monkeypatch):
     )
     vids = cli._collect_videos(None, [], [2024], None)
     assert [v.id for v in vids] == ["v1"]
+
+
+def test_split_unchanged_partitions_planned_videos():
+    changed = (_video(video_id="v1"), "new title", "new desc")
+    unchanged_video = _video(video_id="v2", title="already normalized")
+    unchanged_video.description = "already normalized desc"
+    unchanged = (unchanged_video, "already normalized", "already normalized desc")
+
+    to_push, skipped = cli._split_unchanged([changed, unchanged], skip_unchanged=True)
+    assert [v.id for v, _, _ in to_push] == ["v1"]
+    assert skipped == 1
+
+    to_push, skipped = cli._split_unchanged([changed, unchanged], skip_unchanged=False)
+    assert len(to_push) == 2
+    assert skipped == 0
 
 
 def test_gather_schedules_survives_network_errors(tmp_path, monkeypatch):
@@ -204,3 +240,20 @@ def test_gather_schedules_survives_network_errors(tmp_path, monkeypatch):
 ])
 def test_extract_video_id(s, expected):
     assert _extract_video_id(s) == expected
+
+
+@pytest.mark.parametrize("s", [
+    "https://www.youtube.com/playlist?list=PLxyz",  # no video id present
+    "https://youtube.com/",                         # bare host
+    "https://example.com/watch?v=dQw4w9WgXcQ",      # not a YouTube URL
+])
+def test_extract_video_id_rejects_unrecognizable_urls(s):
+    with pytest.raises(ValueError):
+        _extract_video_id(s)
+
+
+def test_main_exits_cleanly_on_bad_video_id_url(capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["--video-id", "https://www.youtube.com/playlist?list=PLxyz"])
+    assert exc.value.code == 2
+    assert "video-id" in capsys.readouterr().err

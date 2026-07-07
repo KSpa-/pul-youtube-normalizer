@@ -38,7 +38,11 @@ def parse_iso8601_duration(s: str) -> int:
 
 
 def _call_with_retry(request_callable):
-    """Run a `request.execute()`-style callable with exponential backoff on 5xx/429."""
+    """Run a `request.execute()`-style callable with exponential backoff on 5xx/429.
+
+    Honors the Retry-After header when the server sends one larger than the
+    current backoff delay.
+    """
     delay = 1
     for attempt in range(MAX_RETRIES):
         try:
@@ -46,7 +50,11 @@ def _call_with_retry(request_callable):
         except HttpError as e:
             status = e.resp.status if hasattr(e, "resp") else 0
             if status in (429, 500, 502, 503, 504) and attempt < MAX_RETRIES - 1:
-                time.sleep(delay)
+                try:
+                    retry_after = int(e.resp.get("retry-after", 0))
+                except (TypeError, ValueError):
+                    retry_after = 0  # ignore HTTP-date form
+                time.sleep(max(delay, retry_after))
                 delay *= 2
                 continue
             raise
@@ -55,6 +63,36 @@ def _call_with_retry(request_callable):
 def build_service(creds: Credentials):
     """Build a YouTube Data API v3 service object from OAuth credentials."""
     return build("youtube", "v3", credentials=creds, cache_discovery=False)
+
+
+def _video_from_api_item(item: dict) -> Video:
+    snippet = item["snippet"]
+    return Video(
+        id=item["id"],
+        title=snippet["title"],
+        description=snippet.get("description", ""),
+        published_at=datetime.datetime.fromisoformat(
+            snippet["publishedAt"].replace("Z", "+00:00")
+        ),
+        duration_seconds=parse_iso8601_duration(item["contentDetails"]["duration"]),
+    )
+
+
+def get_videos_by_ids(service, video_ids: list[str]) -> Iterator[Video]:
+    """Yield Video records for the given IDs (batched 50 per videos.list call).
+
+    No duration filtering — callers decide. IDs the API doesn't return
+    (deleted/private) are simply absent from the output.
+    """
+    for i in range(0, len(video_ids), 50):
+        batch = list(video_ids[i : i + 50])
+        resp = _call_with_retry(
+            lambda: service.videos()
+            .list(part="snippet,contentDetails", id=",".join(batch))
+            .execute()
+        )
+        for item in resp.get("items", []):
+            yield _video_from_api_item(item)
 
 
 def list_full_game_videos(service, channel_handle: str | None = None) -> Iterator[Video]:
@@ -100,28 +138,10 @@ def list_full_game_videos(service, channel_handle: str | None = None) -> Iterato
         if not page_token:
             break
 
-    # 3. Batch videos.list (50 ids per call) to get snippet + contentDetails.
-    for i in range(0, len(video_ids), 50):
-        batch = video_ids[i : i + 50]
-        resp = _call_with_retry(
-            lambda: service.videos()
-            .list(part="snippet,contentDetails", id=",".join(batch))
-            .execute()
-        )
-        for v in resp.get("items", []):
-            duration_seconds = parse_iso8601_duration(v["contentDetails"]["duration"])
-            if duration_seconds < FULL_GAME_MIN_SECONDS:
-                continue
-            snippet = v["snippet"]
-            yield Video(
-                id=v["id"],
-                title=snippet["title"],
-                description=snippet.get("description", ""),
-                published_at=datetime.datetime.fromisoformat(
-                    snippet["publishedAt"].replace("Z", "+00:00")
-                ),
-                duration_seconds=duration_seconds,
-            )
+    # 3. Batch videos.list (50 ids per call) and keep the full-game ones.
+    for video in get_videos_by_ids(service, video_ids):
+        if video.duration_seconds >= FULL_GAME_MIN_SECONDS:
+            yield video
 
 
 def update_video(service, video_id: str, new_title: str, new_description: str,
