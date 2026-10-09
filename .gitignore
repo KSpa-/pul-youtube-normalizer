@@ -17,3 +17,6 @@ logs/*
 !logs/.gitkeep
 !tests/fixtures/.gitkeep
 tests/fixtures/*_files/
+
+# Claude Code local settings
+.claude/settings.local.json
